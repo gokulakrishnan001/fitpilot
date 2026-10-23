@@ -2,7 +2,6 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,11 +19,10 @@ class ClientSettings(BaseSettings):
     # Sent as x-api-key when the FitGen server runs with AUTH_MODE=api_key.
     mcp_api_key: str = ""
 
-    llm_provider: Literal["groq", "bedrock"] = "groq"
-    groq_api_key: str = ""
-    groq_model_id: str = "openai/gpt-oss-120b"
     bedrock_chat_model_id: str = "amazon.nova-lite-v1:0"
     aws_region: str = "us-east-1"
+    # Bedrock API key; empty uses the normal AWS credential chain (e.g. an EC2 role).
+    bedrock_api_key: str = ""
     llm_timeout_seconds: float = 30.0
     llm_max_retries: int = 2
 

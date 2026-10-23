@@ -7,7 +7,6 @@ dependencies = [
     "fastapi>=0.143",
     "langchain>=1.4,<2",
     "langchain-aws>=1.8,<2",
-    "langchain-groq>=1.1,<2",
     "mcp>=2.3,<3",
     "pydantic-settings>=2.15",
     "uvicorn[standard]>=0.54",

@@ -5,7 +5,7 @@ Status of the build against the implementation plan. Last updated 2026-10-12.
 **Summary:** Phases 0–4, 6, 7a and 8 are done on `feature/alexa-mcp-server` and verified end
 to end: 274 server tests and 11 demo-client tests pass against a real Postgres (plus
 opt-in live LLM tests), all 15 tools respond in 3–55 ms, AI coaching notes are generated in
-the background with Groq, and a voice demo client drives FitGen at about 0.7 s per turn.
+the background (now on Amazon Bedrock), and a voice demo client drives FitGen at about 0.7 s per turn.
 Signature feature: live voice coaching between sets ("that felt easy" changes the next set,
 "you beat last time"). Phase 5 (widget) is deferred.
 
@@ -133,16 +133,16 @@ Signature feature: live voice coaching between sets ("that felt easy" changes th
 
 ### Phase 6: Background AI jobs
 
-- **LLM clients** (`server/jobs/llm.py`): `LLMClient` interface; `GroqClient` (default,
-  `openai/gpt-oss-120b`, low reasoning effort) and `BedrockClient` (Converse API, Nova Lite,
-  run in a thread), both with timeouts and retries. Selected by `LLM_PROVIDER`.
+- **LLM clients** (`server/jobs/llm.py`): `LLMClient` interface; `BedrockClient` (Converse
+  API, Nova Lite, run in a thread) with timeouts and retries. Groq was removed on
+  2026-10-23; Bedrock is the only provider (optional `BEDROCK_API_KEY`).
 - **Queue** (`server/jobs/queue.py`): `LocalQueue` (default) and `SqsQueue`, selected by
   `QUEUE_BACKEND`. The `jobs` table is the source of truth; messages only wake the worker.
   Jobs are dispatched after the tool's transaction commits (`server/jobs/dispatch.py`).
 - **Worker** (`server/jobs/worker.py`): runs inside the server process (FastAPI lifespan).
   Sweeps due jobs, claims each atomically, retries with backoff (30 s, 60 s), fails after
-  3 attempts. At startup it requeues jobs left running or queued. A missing Groq key
-  disables the worker with a warning instead of crashing.
+  3 attempts. At startup it requeues jobs left running or queued. A queue configuration
+  error disables the worker with a warning instead of crashing.
 - **`regenerate_weekly_insight`** (`server/jobs/insights.py`):
   - Computes the week's metrics in Python and sends only numbers, exercise names, the goal
     and the unit (no name, id or other personal data).
@@ -200,8 +200,8 @@ Signature feature: live voice coaching between sets ("that felt easy" changes th
   - Tools are `return_direct`: one LLM call per turn, and FitGen's voice-complete text is
     spoken verbatim. One tool per turn (`parallel_tool_calls: false`), so the agent can't
     chain an action the user didn't ask for.
-  - `create_agent` (LangChain 1.x) with Groq `openai/gpt-oss-120b` (default) or Bedrock
-    (mocked only); conversation memory in memory per conversation.
+  - `create_agent` (LangChain 1.x) with Bedrock (`ChatBedrockConverse`, Nova Lite; Groq
+    until 2026-10-23); conversation memory in memory per conversation.
   - `POST /api/chat` streams SSE (`text`, `tool_start`, `tool_result` with components,
     `done`, `error`); `POST /api/action` runs a button's tool directly (allow-listed to the
     server's tools, no LLM).
@@ -274,7 +274,7 @@ Added after Phase 8 to give FitGen one memorable, voice-only moment. Both live i
 | `complete_set` speaks details only when they differ | It's heard after every set; "Set 2 of 4 done." is enough |
 | 8 s retry guard on `complete_set` | Voice requests get retried; a real set never follows the last one that fast |
 | Phase 5 (widget) deferred | Unknown whether Alexa+ supports MCP Apps widgets. Voice answers are complete without it; tools keep the placeholder `ui://` resource; the Phase 8 web client can render components itself |
-| Groq `openai/gpt-oss-120b` for insights | Better coaching quality; latency doesn't matter in the background (~0.7 s per call) |
+| Bedrock (Nova Lite) as the only LLM | Simpler setup and AWS deployment; replaced Groq `openai/gpt-oss-120b` on 2026-10-23 |
 | Worker inside the server process | Matches the plan; jobs table makes it safe to add workers later |
 | Insight doesn't prescribe weights or reps | The progression rule and `get_todays_workout` own those; the note covers priorities, consistency and stalls |
 | `personalize_plan` deferred to Phase 7 | Its trigger (`create_plan`) is there, and changing a plan with an LLM needs strict validation |
@@ -294,8 +294,8 @@ Added after Phase 8 to give FitGen one memorable, voice-only moment. Both live i
 ## Tests
 
 274 tests, **all passing** against Postgres 16 (2026-10-14), plus one opt-in live test
-against Groq (`FITGEN_LIVE_LLM=1 uv run pytest tests/test_llm_live.py -s`), which also
-passes. Without a reachable database the DB tests skip, which is not full verification.
+against the LLM (`FITGEN_LIVE_LLM=1 uv run pytest tests/test_llm_live.py -s`), which passed
+on Groq; not yet rerun on Bedrock. Without a reachable database the DB tests skip, which is not full verification.
 
 Measured tool latency (server timing log, local Postgres): `get_todays_workout` 32 ms,
 `log_workout` 25 ms, `get_weekly_summary` 14 ms, `log_body_metric` 8 ms,
@@ -318,15 +318,15 @@ Measured tool latency (server timing log, local Postgres): `get_todays_workout` 
 | Session presenters (spoken text + components) | `tests/test_session_presenters.py` | No |
 | Guided session end to end: walk-through, skip, resume, undo, retries, stale, latency | `tests/test_sessions_db.py` | **Yes** |
 | Insight prompt, validation, normalization, privacy | `tests/test_insight_validation.py` | No |
-| Groq/Bedrock clients, local/SQS queues (mocked transports) | `tests/test_llm_and_queue.py` | No |
+| Bedrock client, local/SQS queues (mocked transports) | `tests/test_llm_and_queue.py` | No |
 | Worker: success, retries, debounce, concurrency, week targeting, recovery | `tests/test_worker_db.py` | **Yes** |
 | end_session → worker → spoken coaching note | `tests/test_jobs_flow_db.py` | **Yes** |
-| Real Groq call (opt-in) | `tests/test_llm_live.py` | No (network) |
+| Real Bedrock call (opt-in) | `tests/test_llm_live.py` | No (network) |
 | Plates, readiness rules, pain detection, macros, preferences, spoken text | `tests/test_utilities.py` | No |
 | Utility tools end to end, readiness vs progression and active workouts, latency | `tests/test_utilities_db.py` | **Yes** |
 | Effort rules, beat-last-time, effort-aware progression | `tests/test_effort.py` | No |
 | Demo client: tool wrapping, SSE events, memory, actions, failures (`client/backend`) | `client/backend/tests/test_client.py` | **Yes** |
-| Demo client with real Groq: 5-turn workout conversation (opt-in) | `client/backend/tests/test_live.py` | **Yes** + network |
+| Demo client with real Bedrock: workout conversation (opt-in) | `client/backend/tests/test_live.py` | **Yes** + network |
 
 ## How to run
 
@@ -350,9 +350,9 @@ After any model change, rerun `uv run python -m server.db.seed --reset` (wipes a
    ext-apps spec in Phase 5.
 2. **Deployment note for Phase 9.** The SDK's DNS-rebinding protection defaults to
    localhost hosts; allowed hosts must be configured behind the ALB.
-3. **Groq free-tier rate limit.** 8,000 tokens per minute on every Groq model for this key.
-   With the 300-token answer cap and 3-turn history, a turn costs about 1.5–2k tokens and
-   normal-paced conversation no longer stalls; a paid tier would remove the limit.
+3. **Bedrock not yet verified live.** Groq was removed on 2026-10-23. The insight job and
+   the demo agent were tuned and measured on Groq; rerun both live tests on Bedrock
+   (`FITGEN_LIVE_LLM=1`) and check the agent still makes one tool call per turn.
 4. **Voice in a real browser.** Mic and speech output can't be tested here; check in Chrome
    or Edge before demoing.
 5. **Rotate exposed API keys.** The Groq key (and an OpenRouter key, unused) were pasted in
@@ -375,7 +375,7 @@ edits files.
 | Type | Name | Use it for |
 |---|---|---|
 | Agent | `implementer` | Implement an approved plan step, tool or fix, with tests, in the repo's conventions |
-| Agent | `sdk-researcher` | How an SDK really works (MCP, ext-apps, Bedrock, Groq…), from installed source or official docs |
+| Agent | `sdk-researcher` | How an SDK really works (MCP, ext-apps, Bedrock…), from installed source or official docs |
 | Agent | `test-runner` | Run ruff + pytest, report failures with likely causes and any skipped DB tests |
 | Agent | `voice-reviewer` | Check spoken text and tool descriptions for voice quality |
 | Agent | `rules-reviewer` | Check changes against the non-negotiable rules |

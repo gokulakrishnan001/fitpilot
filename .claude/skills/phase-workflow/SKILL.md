@@ -13,7 +13,7 @@ The plan has phases 0–10 (see `PROGRESS.md` for status). Work on exactly one a
   re-litigate settled decisions (no Alembic, MCPServer not FastMCP, dumbbell steps, etc.).
 - Check `git status` and the current branch so you know what's uncommitted.
 - If the phase touches an SDK or spec (MCP, MCP Apps, langchain-mcp-adapters, boto3
-  Bedrock, Groq), use the `sdk-researcher` agent or read the installed source first.
+  Bedrock), use the `sdk-researcher` agent or read the installed source first.
   Never guess an API; if behavior is unclear, stop and ask the user.
 
 ## 2. Propose and wait

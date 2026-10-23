@@ -1,10 +1,10 @@
 """LLM clients for background jobs. Never called on the request path.
 
-`LLM_PROVIDER` picks the implementation: Groq (default) or Amazon Bedrock (Converse API).
-Both apply a per-call timeout and retry transient failures.
+Amazon Bedrock (Converse API), with a per-call timeout and retries for transient failures.
 """
 
 import asyncio
+import os
 from typing import Protocol
 
 from server.config import Settings
@@ -22,54 +22,21 @@ class LLMClient(Protocol):
         ...
 
 
-class GroqClient:
+class BedrockClient:
     def __init__(
         self,
         *,
-        api_key: str,
         model_id: str,
+        region: str,
         timeout: float,
         max_retries: int,
-        http_client=None,
-    ):
-        from groq import AsyncGroq  # imported here so Bedrock-only deployments don't need it
-
-        self.model_id = model_id
-        self._client = AsyncGroq(
-            api_key=api_key, timeout=timeout, max_retries=max_retries, http_client=http_client
-        )
-
-    async def complete(self, *, system: str, user: str, max_tokens: int = 600) -> str:
-        from groq import GroqError
-
-        kwargs = {}
-        if self.model_id.startswith("openai/gpt-oss"):
-            # Reasoning models: keep reasoning short and out of the returned text.
-            kwargs = {"reasoning_effort": "low", "include_reasoning": False}
-        try:
-            response = await self._client.chat.completions.create(
-                model=self.model_id,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                max_completion_tokens=max_tokens,
-                temperature=0.4,
-                **kwargs,
-            )
-        except GroqError as exc:
-            raise LLMError(f"Groq call failed: {type(exc).__name__}: {exc}") from exc
-        text = (response.choices[0].message.content or "").strip() if response.choices else ""
-        if not text:
-            raise LLMError("Groq returned an empty response")
-        return text
-
-
-class BedrockClient:
-    def __init__(
-        self, *, model_id: str, region: str, timeout: float, max_retries: int, client=None
+        api_key: str = "",
+        client=None,
     ):
         self.model_id = model_id
+        if api_key:
+            # botocore reads Bedrock API keys only from this variable.
+            os.environ["AWS_BEARER_TOKEN_BEDROCK"] = api_key
         if client is None:
             import boto3
             from botocore.config import Config
@@ -108,18 +75,10 @@ class BedrockClient:
 
 
 def build_llm_client(settings: Settings) -> LLMClient:
-    if settings.llm_provider == "bedrock":
-        return BedrockClient(
-            model_id=settings.bedrock_model_id,
-            region=settings.aws_region,
-            timeout=settings.llm_timeout_seconds,
-            max_retries=settings.llm_max_retries,
-        )
-    if not settings.groq_api_key:
-        raise LLMError("GROQ_API_KEY is not set")
-    return GroqClient(
-        api_key=settings.groq_api_key,
-        model_id=settings.groq_model_id,
+    return BedrockClient(
+        model_id=settings.bedrock_model_id,
+        region=settings.aws_region,
         timeout=settings.llm_timeout_seconds,
         max_retries=settings.llm_max_retries,
+        api_key=settings.bedrock_api_key,
     )

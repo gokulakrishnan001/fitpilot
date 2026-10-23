@@ -20,7 +20,7 @@ A tool is four thin layers. Look at `log_workout` as the reference implementatio
 - Resolve exercise names with `resolve_exercise(await get_resolver(db), name)`; it raises
   `UserFacingError` with suggestions.
 - Problems the user can fix: raise `UserFacingError("spoken message")`.
-- No LLM/Bedrock/Groq calls. Keep it well under 500 ms: aggregate in SQL, avoid N+1
+- No LLM/Bedrock calls. Keep it well under 500 ms: aggregate in SQL, avoid N+1
   queries, don't reload static data.
 - Put pure rules (math, decisions) in their own functions so they can be tested without
   a database.

@@ -53,7 +53,7 @@ def assert_three_parts(result, display: str) -> None:
 
 
 class FakeLLM:
-    """Stands in for Groq/Bedrock: returns canned replies in order, records the prompts."""
+    """Stands in for Bedrock: returns canned replies in order, records the prompts."""
 
     model_id = "fake-model"
 

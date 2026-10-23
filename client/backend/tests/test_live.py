@@ -1,4 +1,4 @@
-"""Opt-in: the real LLM (Groq by default) driving the real FitGen server. Spends quota.
+"""Opt-in: the real LLM (Bedrock) driving the real FitGen server. Spends quota.
 
 Run with: FITGEN_LIVE_LLM=1 uv run pytest tests/test_live.py -s
 """

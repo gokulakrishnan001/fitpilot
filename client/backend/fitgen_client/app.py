@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from fitgen_client.agent import build_agent, stream_events
 from fitgen_client.config import ClientSettings, get_settings
-from fitgen_client.llm import ModelNotConfigured, build_chat_model
+from fitgen_client.llm import build_chat_model
 from fitgen_client.mcp_tools import call_tool, load_tools, mcp_session
 
 logger = logging.getLogger("fitgen.client")
@@ -56,8 +56,6 @@ def create_app(settings: ClientSettings | None = None, model_factory=build_chat_
                     agent = build_agent(model, await load_tools(session))
                     async for item in stream_events(agent, request.message, conversation_id):
                         yield _sse(item["event"], item["data"])
-            except ModelNotConfigured as exc:
-                yield _sse("error", {"message": f"The assistant isn't configured: {exc}."})
             except Exception:
                 logger.exception("chat failed")
                 yield _sse("error", {"message": "Sorry, something went wrong. Please try again."})

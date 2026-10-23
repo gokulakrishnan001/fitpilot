@@ -47,7 +47,7 @@ then Connect → Tools → `ping`. With `AUTH_MODE=api_key`, add an `x-api-key` 
 
 A web page with a mic button: speech goes to a LangChain agent, which calls FitGen's MCP
 tools and speaks the answer. Needs Chrome or Edge for voice input (typing works anywhere)
-and `GROQ_API_KEY` in `.env`. Run three processes:
+and Bedrock access (`BEDROCK_API_KEY` in `.env`, or AWS credentials). Run three processes:
 
 ```bash
 uv run uvicorn server.app:app --port 8000                                  # 1. FitGen MCP server
@@ -57,7 +57,7 @@ cd client/web && npm install && npm run dev                                # 3. 
 
 Open http://localhost:5173, tap the mic and say "what's my workout today?", "start my
 workout", "done", "only got 6" or "how was my week?". The client backend has its own uv
-project (langchain-groq needs Groq SDK < 1, the server uses 1.x); run its tests with
+project; run its tests with
 `cd client/backend && uv run pytest` (Postgres needed; the live LLM test is opt-in with
 `FITGEN_LIVE_LLM=1`).
 # FitPilot

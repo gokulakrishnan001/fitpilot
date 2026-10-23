@@ -28,13 +28,13 @@ server only provides tools, data and an MCP Apps widget.
 ## Non-negotiable rules
 
 1. Voice-complete spoken text: it fully answers with no screen. Never "here's your dashboard".
-2. Under 500 ms per tool call: no LLM/Bedrock/Groq calls on the request path.
+2. Under 500 ms per tool call: no LLM/Bedrock calls on the request path.
 3. Every UI tool returns text, validated `structuredContent` `{"components", "display"}`,
    and is registered with `apps.tool(resource_uri=WIDGET_URI, ...)`.
 4. User-owned queries are scoped by `user_id` from `get_current_user()` only.
 5. Pounds by default, kilograms supported, stored in kg.
-6. AWS stays behind `LLM_PROVIDER` (groq | bedrock) and `QUEUE_BACKEND` (local | sqs);
-   AWS paths are exercised only by mocked tests until Phase 9.
+6. The LLM is Bedrock only, behind `LLMClient`; the queue stays behind `QUEUE_BACKEND`
+   (local | sqs). AWS paths are exercised only by mocked tests until Phase 9.
 7. No secrets in code, tests or `.env.example`.
 
 ## While implementing

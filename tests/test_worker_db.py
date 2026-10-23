@@ -108,7 +108,7 @@ async def test_invalid_reply_is_retried_with_feedback(sessionmaker):
 
 
 async def test_failures_back_off_then_fail(sessionmaker):
-    llm = FakeLLM(LLMError("Groq call failed: timeout"))
+    llm = FakeLLM(LLMError("Bedrock call failed: timeout"))
     job_id = await enqueue(sessionmaker)
     clock = [NOW]
     w = worker(sessionmaker, llm, clock=lambda: clock[0])

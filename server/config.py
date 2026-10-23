@@ -14,9 +14,6 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://fitgen:fitgen@localhost:5434/fitgen"
 
-    llm_provider: Literal["groq", "bedrock"] = "groq"
-    groq_api_key: str = ""
-    groq_model_id: str = "openai/gpt-oss-120b"
     llm_timeout_seconds: float = 20.0
     llm_max_retries: int = 2
 
@@ -28,6 +25,8 @@ class Settings(BaseSettings):
     insight_debounce_minutes: float = 10.0
 
     aws_region: str = "us-east-1"
+    # Bedrock API key; empty uses the normal AWS credential chain (e.g. an EC2 role).
+    bedrock_api_key: str = ""
     bedrock_model_id: str = "amazon.nova-lite-v1:0"
     sqs_queue_url: str = ""
 

@@ -1,84 +1,15 @@
 """LLM clients and queue backends against mocked transports (no network, no AWS)."""
 
 import asyncio
-import json
+import os
 
 import boto3
-import httpx
 import pytest
 from botocore.stub import Stubber
 
 from server.config import Settings
-from server.jobs.llm import BedrockClient, GroqClient, LLMError, build_llm_client
+from server.jobs.llm import BedrockClient, LLMError, build_llm_client
 from server.jobs.queue import LocalQueue, SqsQueue, build_queue
-
-# --- Groq ---------------------------------------------------------------------------------
-
-
-def _groq(handler, model="openai/gpt-oss-120b") -> GroqClient:
-    http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-    return GroqClient(api_key="test", model_id=model, timeout=5, max_retries=0, http_client=http)
-
-
-def _completion(content):
-    return {
-        "id": "x",
-        "object": "chat.completion",
-        "created": 0,
-        "model": "openai/gpt-oss-120b",
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "stop",
-                "message": {"role": "assistant", "content": content},
-            }
-        ],
-    }
-
-
-async def test_groq_request_and_response():
-    seen = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen["url"] = str(request.url)
-        seen["body"] = json.loads(request.content)
-        return httpx.Response(200, json=_completion("  Two sentences. Here.  "))
-
-    text = await _groq(handler).complete(system="sys", user="data", max_tokens=300)
-    assert text == "Two sentences. Here."
-    body = seen["body"]
-    assert seen["url"].endswith("/openai/v1/chat/completions")
-    assert body["model"] == "openai/gpt-oss-120b"
-    assert body["messages"] == [
-        {"role": "system", "content": "sys"},
-        {"role": "user", "content": "data"},
-    ]
-    assert body["max_completion_tokens"] == 300
-    assert body["reasoning_effort"] == "low" and body["include_reasoning"] is False
-
-
-async def test_groq_non_reasoning_model_has_no_reasoning_args():
-    seen = {}
-
-    def handler(request):
-        seen["body"] = json.loads(request.content)
-        return httpx.Response(200, json=_completion("Ok."))
-
-    await _groq(handler, model="qwen/qwen3.8-27b").complete(system="s", user="u")
-    assert "reasoning_effort" not in seen["body"]
-
-
-@pytest.mark.parametrize(
-    "response",
-    [
-        httpx.Response(500, json={"error": {"message": "boom"}}),
-        httpx.Response(200, json=_completion("")),
-    ],
-)
-async def test_groq_failures_raise_llm_error(response):
-    with pytest.raises(LLMError):
-        await _groq(lambda request: response).complete(system="s", user="u")
-
 
 # --- Bedrock -------------------------------------------------------------------------------
 
@@ -132,11 +63,14 @@ async def test_bedrock_error_raises_llm_error():
 
 
 def test_build_llm_client():
-    with pytest.raises(LLMError):
-        build_llm_client(Settings(llm_provider="groq", groq_api_key=""))
-    assert isinstance(build_llm_client(Settings(groq_api_key="k")), GroqClient)
-    bedrock = build_llm_client(Settings(llm_provider="bedrock"))
+    bedrock = build_llm_client(Settings(_env_file=None))
     assert isinstance(bedrock, BedrockClient) and bedrock.model_id == "amazon.nova-lite-v1:0"
+
+
+def test_bedrock_api_key_reaches_botocore(monkeypatch):
+    monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
+    build_llm_client(Settings(_env_file=None, bedrock_api_key="abc"))
+    assert os.environ["AWS_BEARER_TOKEN_BEDROCK"] == "abc"
 
 
 # --- Queues --------------------------------------------------------------------------------

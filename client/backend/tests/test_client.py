@@ -5,12 +5,11 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from langchain_aws import ChatBedrockConverse
-from langchain_groq import ChatGroq
 
 from fitgen_client.agent import recent_turns
 from fitgen_client.app import create_app
 from fitgen_client.config import ClientSettings
-from fitgen_client.llm import ModelNotConfigured, build_chat_model
+from fitgen_client.llm import build_chat_model
 from fitgen_client.mcp_tools import load_tools, mcp_session
 from tests.conftest import API_KEY
 from tests.fakes import ScriptedChatModel, tool_call
@@ -19,7 +18,7 @@ from tests.fakes import ScriptedChatModel, tool_call
 def settings(url: str, **overrides) -> ClientSettings:
     # _env_file=None: tests don't depend on the developer's .env.
     return ClientSettings(
-        _env_file=None, mcp_url=url, mcp_api_key=API_KEY, groq_api_key="", **overrides
+        _env_file=None, mcp_url=url, mcp_api_key=API_KEY, **overrides
     )
 
 
@@ -106,14 +105,6 @@ def test_tool_errors_reach_the_model_and_the_screen(fitgen_url):
     assert result["components"][0]["type"] == "alert"
 
 
-def test_chat_without_model_config_reports_an_error(fitgen_url):
-    client = TestClient(create_app(settings(fitgen_url)))  # real factory, no Groq key
-    events = chat(client, "hello")
-    assert events == [
-        ("error", {"message": "The assistant isn't configured: GROQ_API_KEY is not set."})
-    ]
-
-
 # --- /api/action ----------------------------------------------------------------------------
 
 
@@ -151,16 +142,13 @@ def test_session_buttons_drive_a_workout(fitgen_url):
 
 
 def test_build_chat_model():
-    with pytest.raises(ModelNotConfigured):
-        build_chat_model(ClientSettings(_env_file=None, groq_api_key=""))
-    groq = build_chat_model(ClientSettings(_env_file=None, groq_api_key="k"))
-    assert isinstance(groq, ChatGroq)
-    assert groq.reasoning_effort == "low"
-    assert groq.model_kwargs == {"parallel_tool_calls": False, "include_reasoning": False}
-    assert groq.max_tokens == 300
-    bedrock = build_chat_model(ClientSettings(_env_file=None, llm_provider="bedrock"))
+    bedrock = build_chat_model(ClientSettings(_env_file=None))
     assert isinstance(bedrock, ChatBedrockConverse)
     assert bedrock.model_id == "amazon.nova-lite-v1:0"
+    keyed = build_chat_model(
+        ClientSettings(_env_file=None, bedrock_api_key="abc")
+    )
+    assert keyed.bedrock_api_key.get_secret_value() == "abc"
 
 
 def _ai(text: str):

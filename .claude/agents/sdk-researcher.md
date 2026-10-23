@@ -1,6 +1,6 @@
 ---
 name: sdk-researcher
-description: Answers "how does this API actually work?" for the MCP Python SDK (mcp 2.x), MCP Apps (@modelcontextprotocol/ext-apps), langchain-mcp-adapters, boto3 Bedrock, Groq, SQLAlchemy and similar, by reading the installed package source or official docs. Use before writing code against any of these APIs. Read-only.
+description: Answers "how does this API actually work?" for the MCP Python SDK (mcp 2.x), MCP Apps (@modelcontextprotocol/ext-apps), langchain-mcp-adapters, boto3 Bedrock, SQLAlchemy and similar, by reading the installed package source or official docs. Use before writing code against any of these APIs. Read-only.
 tools: Read, Grep, Glob, Bash, WebFetch
 model: sonnet
 ---

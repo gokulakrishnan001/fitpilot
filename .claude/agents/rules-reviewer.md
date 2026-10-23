@@ -14,7 +14,7 @@ coach) against its non-negotiable rules. Start from the pending changes:
 1. **User scoping.** Every query on user-owned data filters by `user_id`, and that id comes
    only from `get_current_user()` (via `run_tool` in `server/tools/registry.py`). Tool
    inputs must never carry a user id, session id or row id.
-2. **Latency under 500 ms.** No LLM, Bedrock or Groq calls on the request path; AI work
+2. **Latency under 500 ms.** No LLM or Bedrock calls on the request path; AI work
    runs in background jobs and tools read stored results. Watch for N+1 queries, loading
    whole histories when an aggregate would do, and per-call loading of static data (the
    exercise resolver is cached in `server/services/resolver_cache.py`).
@@ -24,8 +24,8 @@ coach) against its non-negotiable rules. Start from the pending changes:
    raise (server bug), never be retried or swallowed.
 4. **Units.** Stored in kg (`to_kg` on the way in); pounds by default, kilograms
    supported; output via `format_weight`.
-5. **AWS behind interfaces.** `LLM_PROVIDER` (groq | bedrock) and `QUEUE_BACKEND`
-   (local | sqs) select implementations; defaults groq and local; AWS code paths only
+5. **AWS behind interfaces.** The LLM is Bedrock only, behind `LLMClient`;
+   `QUEUE_BACKEND` (local | sqs) selects the queue, default local. AWS code paths only
    exercised by mocked tests until Phase 9.
 6. **No guessed APIs.** New SDK usage should match the installed package; flag anything
    that looks invented and suggest the `sdk-researcher` agent.
